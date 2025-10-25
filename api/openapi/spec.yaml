@@ -1,0 +1,429 @@
+openapi: 3.0.3
+info:
+  title: Приложение для трекинга финансов
+  description: Backend для android приложения
+  version: 1.0.0
+servers:
+  - url: 'http://spendings-pages.ddns.net'
+
+security:
+  - bearerAuth: [ ]
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    Transaction:
+      type: object
+      required: [id, amount, title, category, date]
+      properties:
+        id:
+          type: string
+          example: "1234-2222-3333-4444"
+        amount:
+          type: number
+          example: 1000
+        title:
+          type: string
+          example: "Ресторан у дома"
+        category:
+          type: string
+          example: "Еда"
+        date:
+          type: string
+          format: date
+          example: "2025-09-01"
+        nextAppearDate:
+          type: string
+          format: date
+          example: "2025-09-02"
+          description: "Дата следующего появления для повторяющихся транзакций"
+
+    CreateTransactionRequest:
+      type: object
+      required: [amount, title, category, date]
+      properties:
+        amount:
+          type: number
+          example: 1000
+        title:
+          type: string
+          example: "Ресторан у дома"
+        category:
+          type: string
+          example: "Еда"
+        date:
+          type: string
+          format: date
+          example: "2025-09-01"
+        repeatTime:
+          type: string
+          example: "fri, 26, mon, 19"
+          description: "Повторение транзакции (дни недели и числа месяца)"
+
+    CreateTransactionResponse:
+      type: object
+      required: [id]
+      properties:
+        id:
+          type: string
+          example: "1234-2222-3333-4444"
+
+    TransactionsResponse:
+      type: object
+      required: [currentPage, totalPages, data]
+      properties:
+        currentPage:
+          type: integer
+          example: 1
+        totalPages:
+          type: integer
+          example: 1
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Transaction"
+
+    GeneralStatistics:
+      type: object
+      required: [income, expenses, balance]
+      properties:
+        income:
+          type: number
+          example: 10000
+        expenses:
+          type: number
+          example: 5000
+        balance:
+          type: number
+          example: 5000
+
+    SpendingCurveInfo:
+      type: object
+      required: [averageSpending, currentSpending, date]
+      properties:
+        averageSpending:
+          type: number
+          example: 1500
+        currentSpending:
+          type: number
+          example: 1000
+        date:
+          type: string
+          format: date
+          example: "2025-09-01"
+
+    StatisticsResponse:
+      type: object
+      required: [generalStatistics, balanceChangesByDate, spendingCurveInfo, fromDate, toDate]
+      properties:
+        generalStatistics:
+          $ref: "#/components/schemas/GeneralStatistics"
+        balanceChangesByDate:
+          type: object
+          additionalProperties:
+            type: number
+          example:
+            "2025-09-01": 1000
+            "2025-09-02": -2000
+            "2025-09-03": 3000
+        spendingCurveInfo:
+          type: array
+          items:
+            $ref: "#/components/schemas/SpendingCurveInfo"
+          description: "Информация о кривой расходов, отсортированная по дате по возрастанию"
+        fromDate:
+          type: string
+          format: date
+          example: "2025-09-01"
+        toDate:
+          type: string
+          format: date
+          example: "2025-09-30"
+
+    Category:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          example: "Еда"
+
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+          example: Unauthorized
+
+  responses:
+    "401" :
+      description: Токен доступа недействителен или не указан
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            error:
+              "Unauthorized"
+    "403":
+      description: Операция запрещена
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            error: "Unable to create token"
+
+    "404":
+      description: Искомый объект не найден
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            error: "Transaction not found: transaction 1234-2222-3333-4444 not found"
+
+    BadRequestError:
+      description: Ошибка валидации входных данных
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            error: Bad request
+
+    InternalServerError:
+      description: Внутренняя ошибка сервера
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            error:
+              Internal error
+
+paths:
+  /api/health:
+    get:
+      tags: [Health]
+      summary: Проверить доступность сервера
+      responses:
+        "200":
+          description: Сервер доступен
+        default:
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/statistics:
+    get:
+      summary: Получить статистику по расходам за период
+      description: Возвращает статистику по расходам за указанный период. Если один из параметров не указан, возвращает статистику за текущий месяц.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: from
+          in: query
+          description: Дата начала периода (формат YYYY-MM-DD)
+          required: false
+          schema:
+            type: string
+            format: date
+            example: "2025-09-01"
+        - name: to
+          in: query
+          description: Дата конца периода (формат YYYY-MM-DD)
+          required: false
+          schema:
+            type: string
+            format: date
+            example: "2025-09-30"
+      responses:
+        "200":
+          description: Статистика успешно получена
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StatisticsResponse"
+        "401":
+          $ref: "#/components/responses/401"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/transactions:
+    get:
+      summary: Получить список транзакций
+      description: Возвращает список транзакций с возможностью фильтрации по категориям и датам
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: category
+          in: query
+          description: Фильтр по категории (можно указать несколько)
+          required: false
+          schema:
+            type: array
+            items:
+              type: string
+            example: ["food", "transport"]
+        - name: from
+          in: query
+          description: Дата начала периода (формат YYYY-MM-DD)
+          required: false
+          schema:
+            type: string
+            format: date
+            example: "2025-09-01"
+        - name: to
+          in: query
+          description: Дата конца периода (формат YYYY-MM-DD)
+          required: false
+          schema:
+            type: string
+            format: date
+            example: "2025-09-30"
+        - name: page
+          in: query
+          description: Номер страницы
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+            example: 1
+        - name: pageSize
+          in: query
+          description: Размер страницы
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+            example: 10
+      responses:
+        "200":
+          description: Список транзакций успешно получен
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TransactionsResponse"
+        "401":
+          $ref: "#/components/responses/401"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+    post:
+      summary: Создать новую транзакцию
+      description: Создает новую транзакцию с возможностью настройки повторения
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTransactionRequest"
+            example:
+              amount: 1000
+              title: "Ресторан у дома"
+              category: "Еда"
+              date: "2025-09-01"
+              repeatTime: "fri, 26, mon, 19"
+      responses:
+        "201":
+          description: Транзакция успешно создана
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateTransactionResponse"
+        "400":
+          $ref: "#/components/responses/BadRequestError"
+        "401":
+          $ref: "#/components/responses/401"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/transactions/{id}:
+    delete:
+      summary: Удалить транзакцию
+      description: Удаляет транзакцию по указанному ID
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID транзакции
+          schema:
+            type: string
+            example: "1234-2222-3333-4444"
+      responses:
+        "204":
+          description: Транзакция успешно удалена
+        "401":
+          $ref: "#/components/responses/401"
+        "404":
+          $ref: "#/components/responses/404"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/categories:
+    get:
+      summary: Получить список категорий
+      description: Возвращает список всех категорий с возможностью фильтрации по названию
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: name
+          in: query
+          description: Фильтр по названию категории (возвращает категории, начинающиеся с указанной подстроки)
+          required: false
+          schema:
+            type: string
+            example: "foo"
+      responses:
+        "200":
+          description: Список категорий успешно получен
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Category"
+        "401":
+          $ref: "#/components/responses/401"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+    post:
+      summary: Создать новую категорию
+      description: Добавляет новую категорию
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Category"
+            example:
+              name: "Еда"
+      responses:
+        "201":
+          description: Категория успешно создана
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Category"
+        "400":
+          $ref: "#/components/responses/BadRequestError"
+        "401":
+          $ref: "#/components/responses/401"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+  
