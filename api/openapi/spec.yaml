@@ -1,10 +1,31 @@
 openapi: 3.0.3
 info:
   title: Приложение для трекинга финансов
-  description: Backend для android приложения
+  description: |
+    Backend для android приложения для трекинга финансов.
+    
+    API позволяет:
+    - Создавать и управлять транзакциями (доходы и расходы)
+    - Получать статистику по расходам за различные периоды
+    - Управлять категориями транзакций
+    - Настраивать повторяющиеся транзакции
+    
+    Все эндпоинты требуют аутентификации через JWT токен.
   version: 1.0.0
 servers:
   - url: 'http://spendings-pages.ddns.net'
+    description: Production server
+  - url: 'http://localhost:8080'
+    description: Development server
+tags:
+  - name: Health
+    description: Проверка состояния сервера
+  - name: Statistics
+    description: Получение статистики по расходам
+  - name: Transactions
+    description: Управление транзакциями
+  - name: Categories
+    description: Управление категориями
 
 security:
   - bearerAuth: [ ]
@@ -24,24 +45,34 @@ components:
         id:
           type: string
           example: "1234-2222-3333-4444"
+          description: "Уникальный идентификатор транзакции"
         amount:
           type: number
+          format: float
           example: 1000
+          description: "Сумма транзакции (всегда положительная)"
         title:
           type: string
           example: "Ресторан у дома"
+          description: "Название транзакции"
         category:
           type: string
           example: "Еда"
+          description: "Категория транзакции. 'Доходы' для доходов, остальные для расходов"
         date:
           type: string
           format: date
           example: "2025-09-01"
+          description: "Дата транзакции в формате YYYY-MM-DD"
         nextAppearDate:
           type: string
           format: date
           example: "2025-09-02"
           description: "Дата следующего появления для повторяющихся транзакций"
+        repeatTime:
+          type: string
+          example: "fri, 26, mon, 19"
+          description: "Повторение транзакции (дни недели и числа месяца)"
 
     CreateTransactionRequest:
       type: object
@@ -49,21 +80,29 @@ components:
       properties:
         amount:
           type: number
+          format: float
+          minimum: 0
           example: 1000
+          description: "Сумма транзакции (всегда положительная)"
         title:
           type: string
+          minLength: 1
           example: "Ресторан у дома"
+          description: "Название транзакции"
         category:
           type: string
+          minLength: 1
           example: "Еда"
+          description: "Категория транзакции. 'Доходы' для доходов, остальные для расходов"
         date:
           type: string
           format: date
           example: "2025-09-01"
+          description: "Дата транзакции в формате YYYY-MM-DD"
         repeatTime:
           type: string
           example: "fri, 26, mon, 19"
-          description: "Повторение транзакции (дни недели и числа месяца)"
+          description: "Повторение транзакции (дни недели и числа месяца). Опциональный параметр."
 
     CreateTransactionResponse:
       type: object
@@ -151,7 +190,9 @@ components:
       properties:
         name:
           type: string
+          minLength: 1
           example: "Еда"
+          description: "Название категории"
 
     ErrorResponse:
       type: object
@@ -221,14 +262,15 @@ paths:
 
   /api/statistics:
     get:
+      tags: [Statistics]
       summary: Получить статистику по расходам за период
-      description: Возвращает статистику по расходам за указанный период. Если один из параметров не указан, возвращает статистику за текущий месяц.
+      description: Возвращает статистику по расходам за указанный период. Если параметры from и to не указаны, возвращает статистику за текущий месяц. Если указан только один параметр, возвращает ошибку 400.
       security:
         - bearerAuth: []
       parameters:
         - name: from
           in: query
-          description: Дата начала периода (формат YYYY-MM-DD)
+          description: Дата начала периода в формате YYYY-MM-DD. Если не указана вместе с to, используется текущий месяц.
           required: false
           schema:
             type: string
@@ -236,7 +278,7 @@ paths:
             example: "2025-09-01"
         - name: to
           in: query
-          description: Дата конца периода (формат YYYY-MM-DD)
+          description: Дата конца периода в формате YYYY-MM-DD. Если не указана вместе с from, используется текущий месяц.
           required: false
           schema:
             type: string
@@ -249,6 +291,26 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/StatisticsResponse"
+              example:
+                generalStatistics:
+                  income: 10000
+                  expenses: 5000
+                  balance: 5000
+                balanceChangesByDate:
+                  "2025-09-01": 1000
+                  "2025-09-02": -2000
+                  "2025-09-03": 3000
+                spendingCurveInfo:
+                  - averageSpending: 1500
+                    currentSpending: 1000
+                    date: "2025-09-01"
+                  - averageSpending: 2500
+                    currentSpending: 1050
+                    date: "2025-09-02"
+                fromDate: "2025-09-01"
+                toDate: "2025-09-30"
+        "400":
+          $ref: "#/components/responses/BadRequestError"
         "401":
           $ref: "#/components/responses/401"
         "500":
@@ -256,6 +318,7 @@ paths:
 
   /api/transactions:
     get:
+      tags: [Transactions]
       summary: Получить список транзакций
       description: Возвращает список транзакций с возможностью фильтрации по категориям и датам
       security:
@@ -272,7 +335,7 @@ paths:
             example: ["food", "transport"]
         - name: from
           in: query
-          description: Дата начала периода (формат YYYY-MM-DD)
+          description: Дата начала периода в формате YYYY-MM-DD. Если не указана, фильтрация по дате не применяется.
           required: false
           schema:
             type: string
@@ -280,7 +343,7 @@ paths:
             example: "2025-09-01"
         - name: to
           in: query
-          description: Дата конца периода (формат YYYY-MM-DD)
+          description: Дата конца периода в формате YYYY-MM-DD. Если не указана, фильтрация по дате не применяется.
           required: false
           schema:
             type: string
@@ -312,12 +375,30 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/TransactionsResponse"
+              example:
+                currentPage: 1
+                totalPages: 1
+                data:
+                  - id: "1234-2222-3333-4444"
+                    amount: 1000
+                    title: "Ресторан у дома"
+                    category: "Еда"
+                    date: "2025-09-01"
+                    nextAppearDate: "2025-09-02"
+                  - id: "1234-2222-3333-4445"
+                    amount: 2000
+                    title: "Зарплата"
+                    category: "Доходы"
+                    date: "2025-09-01"
+        "400":
+          $ref: "#/components/responses/BadRequestError"
         "401":
           $ref: "#/components/responses/401"
         "500":
           $ref: "#/components/responses/InternalServerError"
 
     post:
+      tags: [Transactions]
       summary: Создать новую транзакцию
       description: Создает новую транзакцию с возможностью настройки повторения
       security:
@@ -341,6 +422,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/CreateTransactionResponse"
+              example:
+                id: "1234-2222-3333-4444"
         "400":
           $ref: "#/components/responses/BadRequestError"
         "401":
@@ -350,6 +433,7 @@ paths:
 
   /api/transactions/{id}:
     delete:
+      tags: [Transactions]
       summary: Удалить транзакцию
       description: Удаляет транзакцию по указанному ID
       security:
@@ -374,6 +458,7 @@ paths:
 
   /api/categories:
     get:
+      tags: [Categories]
       summary: Получить список категорий
       description: Возвращает список всех категорий с возможностью фильтрации по названию
       security:
@@ -395,12 +480,18 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/Category"
+              example:
+                - name: "Еда"
+                - name: "Транспорт"
+                - name: "Доходы"
+                - name: "Развлечения"
         "401":
           $ref: "#/components/responses/401"
         "500":
           $ref: "#/components/responses/InternalServerError"
 
     post:
+      tags: [Categories]
       summary: Создать новую категорию
       description: Добавляет новую категорию
       security:
@@ -420,6 +511,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Category"
+              example:
+                name: "Еда"
         "400":
           $ref: "#/components/responses/BadRequestError"
         "401":

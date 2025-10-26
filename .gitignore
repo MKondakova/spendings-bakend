@@ -1,7 +1,7 @@
 /vendor/
 /api/generated
 .idea
-/data/uploads
-"backend"
+/data/backups
+spendings-backend
 notes.md
 .env

@@ -189,15 +189,21 @@ func (r *Router) getStatistics(writer http.ResponseWriter, request *http.Request
 	var fromDate, toDate time.Time
 	var err error
 
-	if fromDate, err = time.Parse("2006-01-02", request.URL.Query().Get("from")); err != nil {
-		r.sendErrorResponse(writer, request, fmt.Errorf("%w: %w", models.ErrBadRequest, err))
-		return
+	// Парсим параметр from, если он указан
+	if fromStr := request.URL.Query().Get("from"); fromStr != "" {
+		if fromDate, err = time.Parse("2006-01-02", fromStr); err != nil {
+			r.sendErrorResponse(writer, request, fmt.Errorf("%w: invalid from date format: %w", models.ErrBadRequest, err))
+			return
+		}
 	}
-	if toDate, err = time.Parse("2006-01-02", request.URL.Query().Get("to")); err != nil {
-		r.sendErrorResponse(writer, request, fmt.Errorf("%w: %w", models.ErrBadRequest, err))
-		return
+
+	// Парсим параметр to, если он указан
+	if toStr := request.URL.Query().Get("to"); toStr != "" {
+		if toDate, err = time.Parse("2006-01-02", toStr); err != nil {
+			r.sendErrorResponse(writer, request, fmt.Errorf("%w: invalid to date format: %w", models.ErrBadRequest, err))
+			return
+		}
 	}
-	
 
 	statistics, err := r.statisticsService.GetStatistics(request.Context(), fromDate, toDate)
 	if err != nil {
@@ -221,14 +227,20 @@ func (r *Router) getTransactions(writer http.ResponseWriter, request *http.Reque
 	var fromDate, toDate time.Time
 	var err error
 
-	if fromDate, err = time.Parse("2006-01-02", request.URL.Query().Get("from")); err != nil {
-		r.sendErrorResponse(writer, request, fmt.Errorf("%w: %w", models.ErrBadRequest, err))
-		return
+	// Парсим параметр from, если он указан
+	if fromStr := request.URL.Query().Get("from"); fromStr != "" {
+		if fromDate, err = time.Parse("2006-01-02", fromStr); err != nil {
+			r.sendErrorResponse(writer, request, fmt.Errorf("%w: invalid from date format: %w", models.ErrBadRequest, err))
+			return
+		}
 	}
 
-	if toDate, err = time.Parse("2006-01-02", request.URL.Query().Get("to")); err != nil {
-		r.sendErrorResponse(writer, request, fmt.Errorf("%w: %w", models.ErrBadRequest, err))
-		return
+	// Парсим параметр to, если он указан
+	if toStr := request.URL.Query().Get("to"); toStr != "" {
+		if toDate, err = time.Parse("2006-01-02", toStr); err != nil {
+			r.sendErrorResponse(writer, request, fmt.Errorf("%w: invalid to date format: %w", models.ErrBadRequest, err))
+			return
+		}
 	}
 
 	page, err := getPaginationParameter(request, "page", 1)

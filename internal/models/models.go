@@ -9,6 +9,9 @@ import (
 
 const DefaultPageSize = 20
 
+// Категория для доходов
+const IncomeCategory = "Доходы"
+
 // Auth models
 type AuthTokenClaims struct {
 	*jwt.RegisteredClaims
@@ -31,6 +34,7 @@ type Transaction struct {
 	Category       string     `json:"category"`
 	Date           time.Time  `json:"date"`
 	NextAppearDate *time.Time `json:"nextAppearDate,omitempty"`
+	RepeatTime     string     `json:"repeatTime,omitempty"`
 }
 
 type CreateTransactionRequest struct {
@@ -75,4 +79,18 @@ type StatisticsResponse struct {
 // Category models
 type Category struct {
 	Name string `json:"name"`
+}
+
+// FinancialData структура для хранения и загрузки данных финансового трекинга
+type FinancialData struct {
+	Transactions map[string]map[string]Transaction `json:"transactions"` // userID -> transactionID -> transaction
+	Categories   map[string][]Category             `json:"categories"`   // userID -> categories
+}
+
+// GetDefaultFinancialData возвращает структуру с пустыми данными
+func GetDefaultFinancialData() FinancialData {
+	return FinancialData{
+		Transactions: make(map[string]map[string]Transaction),
+		Categories:   make(map[string][]Category),
+	}
 }

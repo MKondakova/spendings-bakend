@@ -8,7 +8,7 @@ import (
 
 	_ "go.uber.org/mock/mockgen/model"
 
-	"eats-backend/internal/application"
+	"spendings-backend/internal/application"
 )
 
 func main() {

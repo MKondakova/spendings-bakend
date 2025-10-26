@@ -1,0 +1,37 @@
+[
+  {
+    "id": "fruits",
+    "name": "Фрукты",
+    "image": "http://localhost/uploads/eats-jxl/apple.jxl"
+  },
+  {
+    "id": "bakery",
+    "name": "Выпечка",
+    "image": "http://localhost/uploads/eats-jxl/bread.jxl"
+  },
+  {
+    "id": "dairy",
+    "name": "Молочные продукты",
+    "image": "http://localhost/uploads/eats-jxl/milk.jxl"
+  },
+  {
+    "id": "drinks",
+    "name": "Напитки",
+    "image": "http://localhost/uploads/eats-jxl/water.jxl"
+  },
+  {
+    "id": "sweets",
+    "name": "Сладости",
+    "image": "http://localhost/uploads/eats-jxl/coin-donut.jxl"
+  },
+  {
+    "id": "food",
+    "name": "Готовая еда",
+    "image": "http://localhost/uploads/eats-jxl/wrapped-with-shrimp.jxl"
+  },
+  {
+    "id": "household",
+    "name": "Товары для дома",
+    "image": "http://localhost/uploads/eats-jxl/cleaning.jxl"
+  }
+]
