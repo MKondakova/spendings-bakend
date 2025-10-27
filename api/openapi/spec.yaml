@@ -69,10 +69,6 @@ components:
           format: date
           example: "2025-09-02"
           description: "Дата следующего появления для повторяющихся транзакций"
-        repeatTime:
-          type: string
-          example: "fri, 26, mon, 19"
-          description: "Повторение транзакции (дни недели и числа месяца)"
 
     CreateTransactionRequest:
       type: object

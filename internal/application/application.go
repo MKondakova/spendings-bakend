@@ -17,12 +17,13 @@ import (
 type Application struct {
 	cfg *config.Config
 
-	tokenService        *service.TokenService
-	statisticsService   *service.StatisticsService
-	transactionsService *service.TransactionsService
-	categoriesService   *service.CategoriesService
-	backupService       *service.BackupService
-	logger              *zap.SugaredLogger
+	tokenService                 *service.TokenService
+	statisticsService            *service.StatisticsService
+	transactionsService          *service.TransactionsService
+	categoriesService            *service.CategoriesService
+	recurringTransactionsService *service.RecurringTransactionsService
+	backupService                *service.BackupService
+	logger                       *zap.SugaredLogger
 
 	errChan chan error
 	wg      sync.WaitGroup
@@ -51,6 +52,11 @@ func (a *Application) Start(ctx context.Context) error {
 	// Запускаем сервис бэкапа в отдельной горутине
 	a.wg.Go(func() {
 		a.backupService.Start(ctx)
+	})
+
+	// Запускаем сервис повторяющихся транзакций в отдельной горутине
+	a.wg.Go(func() {
+		a.recurringTransactionsService.Start(ctx)
 	})
 
 	// Приложение готово к работе
@@ -136,6 +142,7 @@ func (a *Application) initServices() error {
 	a.transactionsService = service.NewTransactionsService(a.cfg.InitialFinancialData.Transactions)
 	a.categoriesService = service.NewCategoriesService(a.cfg.InitialFinancialData.Categories)
 	a.statisticsService = service.NewStatisticsService(a.transactionsService)
+	a.recurringTransactionsService = service.NewRecurringTransactionsService(a.transactionsService, a.logger)
 
 	// Инициализируем сервис бэкапа (каждые 24 часа)
 	a.backupService = service.NewBackupService(a.logger, "data", 24*time.Hour)

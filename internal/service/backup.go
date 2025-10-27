@@ -51,11 +51,6 @@ func (bs *BackupService) RegisterBackupable(backupable Backupable) {
 func (bs *BackupService) Start(ctx context.Context) {
 	bs.logger.Info("Starting backup service")
 
-	// Выполняем первый бэкап сразу при запуске
-	if err := bs.PerformBackup(); err != nil {
-		bs.logger.Errorf("Initial backup failed: %v", err)
-	}
-
 	ticker := time.NewTicker(bs.interval)
 	defer ticker.Stop()
 

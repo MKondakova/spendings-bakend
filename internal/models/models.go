@@ -33,8 +33,8 @@ type Transaction struct {
 	Title          string     `json:"title"`
 	Category       string     `json:"category"`
 	Date           time.Time  `json:"date"`
-	NextAppearDate *time.Time `json:"nextAppearDate,omitempty"`
-	RepeatTime     string     `json:"repeatTime,omitempty"`
+	NextAppearDate time.Time `json:"nextAppearDate,omitempty"`
+	RepeatTime     string     `json:"-"`
 }
 
 type CreateTransactionRequest struct {

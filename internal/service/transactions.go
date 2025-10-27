@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"math"
 	"sort"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -16,14 +18,6 @@ import (
 type TransactionsService struct {
 	transactions map[string]map[string]models.Transaction // userID -> transactionID -> transaction
 	mux          sync.RWMutex
-}
-
-// TransactionsServiceInterface интерфейс для TransactionsService
-type TransactionsServiceInterface interface {
-	GetTransactions(ctx context.Context, categories []string, fromDate, toDate time.Time, page, pageSize int) (*models.TransactionsResponse, error)
-	GetAllTransactions(ctx context.Context, fromDate, toDate time.Time) ([]models.Transaction, error)
-	CreateTransaction(ctx context.Context, req models.CreateTransactionRequest) (*models.CreateTransactionResponse, error)
-	DeleteTransaction(ctx context.Context, id string) error
 }
 
 func NewTransactionsService(initialData map[string]map[string]models.Transaction) *TransactionsService {
@@ -42,16 +36,17 @@ func (ts *TransactionsService) GetTransactions(ctx context.Context, categories [
 	userID := models.ClaimsFromContext(ctx).ID
 
 	ts.mux.RLock()
-	defer ts.mux.RUnlock()
 
 	userTransactions, exists := ts.transactions[userID]
 	if !exists {
-		return &models.TransactionsResponse{
-			CurrentPage: page,
-			TotalPages:  0,
-			Data:        []models.Transaction{},
-		}, nil
+		ts.mux.RUnlock()
+		ts.mux.Lock()
+		ts.transactions[userID] = getInitialTransactions()
+		ts.mux.Unlock()
 	}
+
+	ts.mux.RLock()
+	defer ts.mux.RUnlock()
 
 	// Конвертируем map в slice и применяем фильтры
 	var filteredTransactions []models.Transaction
@@ -61,6 +56,11 @@ func (ts *TransactionsService) GetTransactions(ctx context.Context, categories [
 			continue
 		}
 		if !toDate.IsZero() && transaction.Date.After(toDate) {
+			continue
+		}
+
+		if len(categories) == 0 {
+			filteredTransactions = append(filteredTransactions, transaction)
 			continue
 		}
 
@@ -122,8 +122,13 @@ func (ts *TransactionsService) GetAllTransactions(ctx context.Context, fromDate,
 
 	userTransactions, exists := ts.transactions[userID]
 	if !exists {
-		return []models.Transaction{}, nil
+		ts.mux.RUnlock()
+		ts.mux.Lock()
+		ts.transactions[userID] = getInitialTransactions()
+		ts.mux.Unlock()
 	}
+
+	ts.mux.RLock()
 
 	// Конвертируем map в slice и применяем фильтры по датам
 	var filteredTransactions []models.Transaction
@@ -156,6 +161,10 @@ func (ts *TransactionsService) CreateTransaction(ctx context.Context, req models
 		return nil, fmt.Errorf("%w: invalid date format: %w", models.ErrBadRequest, err)
 	}
 
+	if err := ts.validateRepeatString(req.RepeatTime); err != nil {
+		return nil, fmt.Errorf("%w: invalid repeat time format: %w", models.ErrBadRequest, err)
+	}
+
 	// Генерируем ID транзакции
 	transactionID := uuid.New().String()
 
@@ -175,7 +184,7 @@ func (ts *TransactionsService) CreateTransaction(ctx context.Context, req models
 		if err != nil {
 			return nil, fmt.Errorf("%w: invalid repeat time format: %w", models.ErrBadRequest, err)
 		}
-		transaction.NextAppearDate = &nextAppearDate
+		transaction.NextAppearDate = nextAppearDate
 	}
 
 	ts.mux.Lock()
@@ -183,7 +192,7 @@ func (ts *TransactionsService) CreateTransaction(ctx context.Context, req models
 
 	// Инициализируем map для пользователя если не существует
 	if ts.transactions[userID] == nil {
-		ts.transactions[userID] = make(map[string]models.Transaction)
+		ts.transactions[userID] = getInitialTransactions()
 	}
 
 	// Сохраняем транзакцию
@@ -210,14 +219,100 @@ func (ts *TransactionsService) DeleteTransaction(ctx context.Context, id string)
 }
 
 // calculateNextAppearDate вычисляет следующую дату появления для повторяющихся транзакций
-func (ts *TransactionsService) calculateNextAppearDate(currentDate time.Time, repeatTime string) (time.Time, error) {
-	// Простая реализация для примера
-	// В реальном приложении здесь была бы более сложная логика
-	// для обработки различных форматов повторения
+func (ts *TransactionsService) calculateNextAppearDate(now time.Time, repeatTime string) (time.Time, error) {
+	repeatTimes := strings.Split(repeatTime, ",")
+	nextAppearDate := now.AddDate(1, 0, 0)
 
-	// Для простоты добавляем 7 дней
-	nextDate := currentDate.AddDate(0, 0, 7)
-	return nextDate, nil
+	for _, nextEvent := range repeatTimes {
+		nextEvent = strings.TrimSpace(nextEvent)
+		if nextEvent == "" {
+			continue
+		}
+
+		if date, err := strconv.Atoi(nextEvent); err == nil {
+			var nextTime time.Time
+			if date >= now.Day() {
+				nextTime = time.Date(now.Year(), now.Month(), date, 0, 0, 0, 0, now.Location())
+			} else {
+				nextTime = time.Date(now.Year(), now.Month(), date, 0, 0, 0, 0, now.Location()).AddDate(0, 1, 0)
+			}
+
+			if nextAppearDate.After(nextTime) {
+				nextAppearDate = nextTime
+			}
+
+			continue
+		}
+
+		if weekday, err := convertToWeekDay(nextEvent); err == nil {
+			// Вычисляем следующий день недели
+			daysUntilWeekday := int(weekday - now.Weekday())
+			if daysUntilWeekday <= 0 {
+				// День недели уже прошел на этой неделе (включая сегодня), берем следующую неделю
+				daysUntilWeekday += 7
+			}
+			// Если daysUntilWeekday > 0, то день недели еще не прошел на этой неделе
+
+			nextTime := now.AddDate(0, 0, daysUntilWeekday)
+			nextTime = time.Date(nextTime.Year(), nextTime.Month(), nextTime.Day(), 0, 0, 0, 0, now.Location())
+
+			if nextAppearDate.After(nextTime) {
+				nextAppearDate = nextTime
+			}
+		}
+	}
+
+	return nextAppearDate, nil
+}
+
+func (ts *TransactionsService) validateRepeatString(repeatTime string) error {
+	if repeatTime == "" {
+		return nil // Пустая строка допустима
+	}
+
+	parts := strings.Split(repeatTime, ",")
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+
+		// Проверяем, является ли часть числом от 1 до 31
+		if num, err := strconv.Atoi(part); err == nil {
+			if num < 1 || num > 31 {
+				return fmt.Errorf("invalid day number: %d, must be between 1 and 31", num)
+			}
+			continue
+		}
+
+		// Проверяем, является ли часть днем недели
+		if _, err := convertToWeekDay(part); err != nil {
+			return fmt.Errorf("invalid weekday: %s, must be one of: mon, tue, wed, thu, fri, sat, sun", part)
+		}
+	}
+
+	return nil
+}
+
+func convertToWeekDay(day string) (time.Weekday, error) {
+	switch strings.ToLower(day) {
+	case "mon", "monday":
+		return time.Monday, nil
+	case "tue", "tuesday":
+		return time.Tuesday, nil
+	case "wed", "wednesday":
+		return time.Wednesday, nil
+	case "thu", "thursday":
+		return time.Thursday, nil
+	case "fri", "friday":
+		return time.Friday, nil
+	case "sat", "saturday":
+		return time.Saturday, nil
+	case "sun", "sunday":
+		return time.Sunday, nil
+	default:
+		return 0, fmt.Errorf("invalid weekday: %s", day)
+	}
 }
 
 // GetBackupData возвращает данные для бэкапа
@@ -249,4 +344,83 @@ func (ts *TransactionsService) GetBackupData() interface{} {
 // GetBackupFileName возвращает имя файла для бэкапа
 func (ts *TransactionsService) GetBackupFileName() string {
 	return "transactions"
+}
+
+// ProcessAllRecurringTransactions проверяет и создает повторяющиеся транзакции для всех пользователей
+func (ts *TransactionsService) ProcessAllRecurringTransactions() error {
+	today := time.Now().Truncate(24 * time.Hour)
+
+	ts.mux.Lock()
+	defer ts.mux.Unlock()
+
+	// Обрабатываем всех пользователей
+	for _, userTransactions := range ts.transactions {
+		// Находим транзакции, которые должны повториться сегодня
+		var transactionsToProcess []models.Transaction
+		for _, transaction := range userTransactions {
+			if !transaction.NextAppearDate.IsZero() &&
+				transaction.NextAppearDate.Truncate(24*time.Hour).Equal(today) &&
+				transaction.RepeatTime != "" {
+				transactionsToProcess = append(transactionsToProcess, transaction)
+			}
+		}
+
+		// Создаем новые транзакции для повторения
+		for _, originalTransaction := range transactionsToProcess {
+			// Создаем новую транзакцию на основе оригинальной
+			newTransaction := models.Transaction{
+				ID:         uuid.New().String(),
+				Amount:     originalTransaction.Amount,
+				Title:      originalTransaction.Title,
+				Category:   originalTransaction.Category,
+				Date:       today,
+				RepeatTime: originalTransaction.RepeatTime,
+			}
+
+			// Вычисляем следующую дату появления
+			nextAppearDate, err := ts.calculateNextAppearDate(today, originalTransaction.RepeatTime)
+			if err == nil {
+				newTransaction.NextAppearDate = nextAppearDate
+			}
+
+			// Добавляем новую транзакцию
+			userTransactions[newTransaction.ID] = newTransaction
+
+			originalTransaction.RepeatTime = ""
+			userTransactions[originalTransaction.ID] = originalTransaction
+		}
+	}
+
+	return nil
+}
+
+func getInitialTransactions() map[string]models.Transaction {
+	return map[string]models.Transaction{
+		"c38bcbd2-e3c5-4a03-9001-bfcf763fbbdf": {
+			ID: "c38bcbd2-e3c5-4a03-9001-bfcf763fbbdf",
+			Amount: 100,
+			Title: "Вода в зале",
+			Category: "Еда",
+			Date: time.Now().Add(-48 * time.Hour),
+			NextAppearDate: time.Time{},
+			RepeatTime: "",
+		},
+		"21867866-21d3-4846-bb5e-c56fbabec4f9": {
+			ID: "21867866-21d3-4846-bb5e-c56fbabec4f9",
+			Amount: 100,
+			Title: "Кино",
+			Category: "Развлечения",
+			Date: time.Now().Add(-24*3 * time.Hour),
+			NextAppearDate: time.Time{},
+		},
+		"a4075928-12c4-44e9-ac2a-0cf4230d4575": {
+			ID: "a4075928-12c4-44e9-ac2a-0cf4230d4575",
+			Amount: 1000,
+			Title: "Зарплата",
+			Category: "Доходы",
+			Date: time.Now().Add(-24*7 * time.Hour),
+			NextAppearDate: time.Now().AddDate(0, 1, 0),
+			RepeatTime: strconv.Itoa(time.Now().Day()),
+		},
+	}
 }

@@ -8,11 +8,16 @@ import (
 	"spendings-backend/internal/models"
 )
 
-type StatisticsService struct {
-	transactionsService TransactionsServiceInterface
+type TransactionsProvider interface {
+	GetAllTransactions(ctx context.Context, fromDate, toDate time.Time) ([]models.Transaction, error)
 }
 
-func NewStatisticsService(transactionsService TransactionsServiceInterface) *StatisticsService {
+
+type StatisticsService struct {
+	transactionsService TransactionsProvider
+}
+
+func NewStatisticsService(transactionsService TransactionsProvider) *StatisticsService {
 	return &StatisticsService{
 		transactionsService: transactionsService,
 	}

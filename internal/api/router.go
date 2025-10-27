@@ -223,6 +223,9 @@ func (r *Router) getStatistics(writer http.ResponseWriter, request *http.Request
 func (r *Router) getTransactions(writer http.ResponseWriter, request *http.Request) {
 	// Parse query parameters
 	categories := request.URL.Query()["category"]
+	if len(categories) == 1 && categories[0] == "" {
+		categories = []string{}
+	}
 
 	var fromDate, toDate time.Time
 	var err error
