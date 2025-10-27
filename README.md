@@ -172,9 +172,9 @@ curl http://localhost:8080/api/health
 1. Настроить nginx:
 
    ```shell
-   sudo cp spendings-pages.ddns.net.conf /etc/nginx/sites-available/spendings-pages.ddns.net.conf
+   sudo cp spendings-app.ddns.net.conf /etc/nginx/sites-available/spendings-app.ddns.net.conf
     
-   sudo ln -s /etc/nginx/sites-available/spendings-pages.ddns.net.conf /etc/nginx/sites-enabled/spendings-pages.ddns.net.conf
+   sudo ln -s /etc/nginx/sites-available/spendings-app.ddns.net.conf /etc/nginx/sites-enabled/spendings-app.ddns.net.conf
     
    sudo nginx -t
    sudo nginx -s reload
@@ -183,15 +183,15 @@ curl http://localhost:8080/api/health
 2. Собрать и запустить контейнер (приложение работает на порту `8080` внутри контейнера):
 
    ```shell
-   docker build . -t spendings-pages-image
+   docker build . -t spendings-app-image
     
-   docker rm -f spendings-pages-app 
+   docker rm -f spendings-app-app 
 
    docker run --env-file ./.env \
       -v "data:/root/data" \
       --restart always \
       -p 8081:8080 \
-      -d --name spendings-pages-app spendings-pages-image:latest
+      -d --name spendings-app-app spendings-app-image:latest
    ```
 
    В env файле необходимо установить PUBLIC_KEY и PRIVATE_KEY. Можно сгенерировать ключи командой:
@@ -284,7 +284,7 @@ data/backups/
 cp data/backups/2025-10-26/transactions_backup_13-07-46.json data/financial_data.json
 
 # Перезапуск
-docker restart spendings-pages-app
+docker restart spendings-app-app
 ```
 
 ### Базовые категории

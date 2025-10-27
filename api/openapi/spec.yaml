@@ -13,7 +13,7 @@ info:
     Все эндпоинты требуют аутентификации через JWT токен.
   version: 1.0.0
 servers:
-  - url: 'http://spendings-pages.ddns.net'
+  - url: 'http://spendings-app.ddns.net'
     description: Production server
   - url: 'http://localhost:8080'
     description: Development server
