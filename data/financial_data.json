@@ -1,5 +1,40 @@
 {
-  "transactions": {},
+  "transactions": {
+    "6f29e540-1729-41f0-a9c6-2755ccef8f9c": {
+      "21867866-21d3-4846-bb5e-c56fbabec4f9": {
+        "id": "21867866-21d3-4846-bb5e-c56fbabec4f9",
+        "amount": 100,
+        "title": "Кино",
+        "category": "Развлечения",
+        "date": "2025-10-24T21:43:57.7740882+03:00",
+        "nextAppearDate": "0001-01-01T00:00:00Z"
+      },
+      "72db619e-db2a-40a6-8e65-ce0e6c6d55bf": {
+        "id": "72db619e-db2a-40a6-8e65-ce0e6c6d55bf",
+        "amount": 1000,
+        "title": "Ресторан у дома",
+        "category": "Еда",
+        "date": "2025-09-01T00:00:00Z",
+        "nextAppearDate": "2025-09-05T00:00:00Z"
+      },
+      "a4075928-12c4-44e9-ac2a-0cf4230d4575": {
+        "id": "a4075928-12c4-44e9-ac2a-0cf4230d4575",
+        "amount": 1000,
+        "title": "Зарплата",
+        "category": "Доходы",
+        "date": "2025-10-20T21:43:57.774090645+03:00",
+        "nextAppearDate": "2025-11-27T21:43:57.774093508+03:00"
+      },
+      "c38bcbd2-e3c5-4a03-9001-bfcf763fbbdf": {
+        "id": "c38bcbd2-e3c5-4a03-9001-bfcf763fbbdf",
+        "amount": 100,
+        "title": "Вода в зале",
+        "category": "Еда",
+        "date": "2025-10-25T21:43:57.774085826+03:00",
+        "nextAppearDate": "0001-01-01T00:00:00Z"
+      }
+    }
+  },
   "categories": {}
 }
 

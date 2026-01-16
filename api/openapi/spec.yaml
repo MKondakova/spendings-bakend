@@ -152,6 +152,21 @@ components:
           format: date
           example: "2025-09-01"
 
+    BalanceChangesByDate:
+      type: object
+      required: [date, changes]
+      properties:
+        date:
+          type: string
+          format: date
+          example: "2025-09-01"
+          description: "Дата изменения баланса"
+        changes:
+          type: number
+          format: float
+          example: 1000
+          description: "Изменение баланса (положительное для доходов, отрицательное для расходов)"
+
     StatisticsResponse:
       type: object
       required: [generalStatistics, balanceChangesByDate, spendingCurveInfo, fromDate, toDate]
@@ -159,13 +174,17 @@ components:
         generalStatistics:
           $ref: "#/components/schemas/GeneralStatistics"
         balanceChangesByDate:
-          type: object
-          additionalProperties:
-            type: number
+          type: array
+          description: "Изменения баланса по датам, отсортированные по возрастанию дат"
+          items:
+            $ref: "#/components/schemas/BalanceChangesByDate"
           example:
-            "2025-09-01": 1000
-            "2025-09-02": -2000
-            "2025-09-03": 3000
+            - date: "2025-09-01"
+              changes: 1000
+            - date: "2025-09-02"
+              changes: -2000
+            - date: "2025-09-03"
+              changes: 3000
         spendingCurveInfo:
           type: array
           items:
@@ -293,9 +312,12 @@ paths:
                   expenses: 5000
                   balance: 5000
                 balanceChangesByDate:
-                  "2025-09-01": 1000
-                  "2025-09-02": -2000
-                  "2025-09-03": 3000
+                  - date: "2025-09-01"
+                    changes: 1000
+                  - date: "2025-09-02"
+                    changes: -2000
+                  - date: "2025-09-03"
+                    changes: 3000
                 spendingCurveInfo:
                   - averageSpending: 1500
                     currentSpending: 1000

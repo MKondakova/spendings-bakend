@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"sort"
 	"time"
 
 	"spendings-backend/internal/models"
@@ -11,7 +12,6 @@ import (
 type TransactionsProvider interface {
 	GetAllTransactions(ctx context.Context, fromDate, toDate time.Time) ([]models.Transaction, error)
 }
-
 
 type StatisticsService struct {
 	transactionsService TransactionsProvider
@@ -80,28 +80,39 @@ func (ss *StatisticsService) calculateGeneralStatistics(transactions []models.Tr
 }
 
 // calculateBalanceChangesByDate вычисляет изменения баланса по датам
-func (ss *StatisticsService) calculateBalanceChangesByDate(transactions []models.Transaction, fromDate, toDate time.Time) map[string]float64 {
-	balanceChanges := make(map[string]float64)
+func (ss *StatisticsService) calculateBalanceChangesByDate(transactions []models.Transaction, fromDate, toDate time.Time) []models.BalanceChangesByDate {
+	balanceChanges := make(map[time.Time]float64)
 
 	// Инициализируем все даты в периоде нулевыми значениями
 	currentDate := fromDate
 	for !currentDate.After(toDate) {
-		dateStr := currentDate.Format("2006-01-02")
-		balanceChanges[dateStr] = 0
+		balanceChanges[currentDate] = 0
 		currentDate = currentDate.AddDate(0, 0, 1)
 	}
 
 	// Добавляем изменения от транзакций
 	for _, transaction := range transactions {
-		dateStr := transaction.Date.Format("2006-01-02")
 		if transaction.Category == models.IncomeCategory {
-			balanceChanges[dateStr] += transaction.Amount
+			balanceChanges[transaction.Date] += transaction.Amount
 		} else {
-			balanceChanges[dateStr] -= transaction.Amount
+			balanceChanges[transaction.Date] -= transaction.Amount
 		}
 	}
 
-	return balanceChanges
+	result := make([]models.BalanceChangesByDate, 0, len(balanceChanges))
+	for date, changes := range balanceChanges {
+		result = append(result, models.BalanceChangesByDate{
+			Time:    date,
+			Date:    date.Format("2006-01-02"),
+			Changes: changes,
+		})
+	}
+
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].Time.Before(result[j].Time)
+	})
+
+	return result
 }
 
 // calculateSpendingCurve вычисляет информацию о кривой трат

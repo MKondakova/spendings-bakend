@@ -70,10 +70,16 @@ type SpendingCurveInfo struct {
 
 type StatisticsResponse struct {
 	GeneralStatistics    GeneralStatistics   `json:"generalStatistics"`
-	BalanceChangesByDate map[string]float64  `json:"balanceChangesByDate"`
+	BalanceChangesByDate []BalanceChangesByDate `json:"balanceChangesByDate"`
 	SpendingCurveInfo    []SpendingCurveInfo `json:"spendingCurveInfo"`
 	FromDate             string              `json:"fromDate"`
 	ToDate               string              `json:"toDate"`
+}
+
+type BalanceChangesByDate struct {
+	Date    string  `json:"date"`
+	Changes float64 `json:"changes"`
+	Time time.Time `json:"-"`
 }
 
 // Category models

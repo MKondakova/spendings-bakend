@@ -79,10 +79,16 @@ Authorization: Bearer <token>
     "expenses": 5000,
     "balance": 5000
   },
-  "balanceChangesByDate": {
-    "2025-09-01": 1000,
-    "2025-09-02": -2000
-  },
+  "balanceChangesByDate": [
+    {
+      "date": "2025-09-01",
+      "changes": 1000
+    },
+    {
+      "date": "2025-09-02",
+      "changes": -2000
+    }
+  ],
   "spendingCurveInfo": [
     {
       "averageSpending": 1500,
@@ -190,7 +196,7 @@ curl http://localhost:8080/api/health
    docker run --env-file ./.env \
       -v "data:/root/data" \
       --restart always \
-      -p 8081:8080 \
+      -p 8083:8080 \
       -d --name spendings-app-app spendings-app-image:latest
    ```
 
